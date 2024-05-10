@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -124,4 +125,24 @@ func main() {
 	}
 	jsn := createJson(timeHtml, groupHtml)
 	fmt.Println(jsn)
+	req, err := http.NewRequest("POST", "http://localhost:8080/createEvents", bytes.NewBufferString(jsn))
+	if err != nil {
+		log.Fatalf("Error sending POST request %s", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err = client.Do(req)
+	if err != nil {
+		log.Fatalf("Error sending POST request %s", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Println(err)
+		}
+	}()
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Error reading response %s", err)
+	}
+	fmt.Println(string(body))
 }
