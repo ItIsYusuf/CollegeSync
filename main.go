@@ -33,6 +33,7 @@ func createJson(timeHtml string, groupHtml string) string {
 		End   string `json:"end"`
 		Class string `json:"class"`
 	}
+	fmt.Println(groupHtml)
 	var schedule []Schedule
 	dateFormat := func(str string) string {
 		date, _ := time.Parse("02.01.2006", str)
@@ -71,11 +72,15 @@ func createJson(timeHtml string, groupHtml string) string {
 			WeekdayTime = append(WeekdayTime, tds.Eq(tds.Length()-2).Text())
 		}
 	})
+
 	doc.Find("tr").Each(func(i int, tr *goquery.Selection) {
 		if i >= 2 {
 			tr.Find("td").Each(func(j int, td *goquery.Selection) {
 				if j >= 2 && j-2 < len(WeekdayTime) {
 					schedule = append(schedule, Schedule{Start: DateArray[j-2] + timeFormat(WeekdayTime[i-2], true), End: DateArray[j-2] + timeFormat(WeekdayTime[i-2], false), Class: td.Text()})
+				}
+				if j == 7 {
+					schedule = append(schedule, Schedule{Start: DateArray[j-2] + timeFormat(SaturdayTime[i-2], true), End: DateArray[j-2] + timeFormat(SaturdayTime[i-2], false), Class: td.Text()})
 				}
 			})
 		}
@@ -84,7 +89,7 @@ func createJson(timeHtml string, groupHtml string) string {
 	return string(jsonData)
 }
 
-func extractGroup(page string, groupName string) (string, error) { //TODO: Think about passing the page by reference
+func extractGroup(page string, groupName string) (string, error) {
 	upperIndex := strings.Index(page, fmt.Sprintf(`"%s":[%s`, groupName, "`"))
 	if upperIndex == -1 {
 		return "", errors.New(fmt.Sprintf("group %s not found", groupName))
