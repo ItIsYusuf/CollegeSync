@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option go_package = "/proto";
+
+package collegeSync;
+
+message ScheduleEntry {
+  string start = 1;
+  string end = 2;
+  string class_name = 3;
+}
+
+message ScheduleRequest{
+  repeated ScheduleEntry entries = 1;
+}
+
+message ScheduleResponse {
+  string status = 1;
+}
+
+service Parser {
+  rpc SendSchedule(ScheduleRequest) returns (ScheduleResponse);
+}

@@ -1,11 +1,12 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
+	pb "collegeSync/proto"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"google.golang.org/grpc"
 	"io"
 	"log"
 	"net/http"
@@ -27,7 +28,7 @@ func getTime(page string) (string, error) {
 	return page, nil
 }
 
-func createJson(timeHtml string, groupHtml string) string {
+func createJson(timeHtml string, groupHtml string) {
 	type Schedule struct {
 		Start string `json:"start"`
 		End   string `json:"end"`
@@ -85,8 +86,30 @@ func createJson(timeHtml string, groupHtml string) string {
 			})
 		}
 	})
-	jsonData, _ := json.Marshal(schedule)
-	return string(jsonData)
+	scheduleRequest := &pb.ScheduleRequest{}
+	for _, s := range schedule {
+		entry := &pb.ScheduleEntry{
+			Start:     s.Start,
+			End:       s.End,
+			ClassName: s.Class,
+		}
+		scheduleRequest.Entries = append(scheduleRequest.Entries, entry)
+	}
+	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("could not connect: %v", err)
+	}
+	defer conn.Close()
+	client := pb.NewParserClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	response, err := client.SendSchedule(ctx, scheduleRequest)
+	if err != nil {
+		log.Fatalf("could not send request: %v", err)
+	}
+	log.Printf(response.Status)
 }
 
 func extractGroup(page string, groupName string) (string, error) {
@@ -120,7 +143,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error reading response %s", err)
 	}
-	groupHtml, err := extractGroup(string(body), "ИСП-934")
+	groupHtml, err := extractGroup(string(body), "ИСП-911")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -128,26 +151,5 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	jsn := createJson(timeHtml, groupHtml)
-	fmt.Println(jsn)
-	req, err := http.NewRequest("POST", "http://localhost:8080/createEvents", bytes.NewBufferString(jsn))
-	if err != nil {
-		log.Fatalf("Error sending POST request %s", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err = client.Do(req)
-	if err != nil {
-		log.Fatalf("Error sending POST request %s", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			log.Println(err)
-		}
-	}()
-	body, err = io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalf("Error reading response %s", err)
-	}
-	fmt.Println(string(body))
+	createJson(timeHtml, groupHtml)
 }
